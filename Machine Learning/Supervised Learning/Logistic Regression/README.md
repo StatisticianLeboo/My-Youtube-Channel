@@ -156,7 +156,7 @@ $$
 
 ## 📊 Output Interpretation
 
-- The interpretation of the estimated regression coefficient Beta1 in the fitted logistic response function is not as straightforward as the slope interpretation in a linear regression model.
+- The interpretation of the estimated regression coefficient $ \beta_1 $ in the fitted logistic response function is not as straightforward as the slope interpretation in a linear regression model.
 - The reason is that the effect of a unit increase in \( X \) varies for the logistic regression model according to the location of the starting point on the \( X \) scale.
   - We consider the value of the fitted logit response function at:
 

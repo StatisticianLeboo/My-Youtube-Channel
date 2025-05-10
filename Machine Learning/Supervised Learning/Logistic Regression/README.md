@@ -1,4 +1,4 @@
-# 📊 Logistic Regression – A Comprehensive Introduction
+# 📊 Logistic Regression – Introduction
 
 ## 📘 What is Logistic Regression?
 
@@ -191,6 +191,11 @@ $$
 
 ---
 
+
+# References
+1. STAT 462 Applied Regression Analysis, Penn State Eberly College of Science - https://online.stat.psu.edu/stat462/node/207/
+2.  Logistic regression in machine learning. (2023, July 14). GeeksforGeeks. https://www.geeksforgeeks.org/understanding-logistic-regression/
+3.  Sklearn.linear_model.LogisticRegression. (n.d.). scikit-learn. Retrieved May 10, 2025, from https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html
 
 
 

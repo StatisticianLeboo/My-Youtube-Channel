@@ -1,0 +1,657 @@
+---
+title: "Logistic Regression in R"
+subtitle: "Diabetes predition using logistic regression"
+author: "Ian Leboo"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+  pdf_document:
+    toc: true
+    number_sections: true
+  word_document:
+    toc: true
+    toc_depth: '3'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Introduction
+
+Logistic Regression is a supervised machine learning techniques used when modeling binary outcomes. It is a type of regression analysis used to predict the probability of a binary outcome based on one or more predictor variables. The outcome variable is typically coded as 0 or 1, where 0 represents the absence of the event and 1 represents the presence of the event.
+
+Read more on logistic regression from my [GitHub repository](<https://github.com/StatisticianLeboo/My-Youtube-Channel/blob/main/Machine%20Learning/Supervised%20Learning/Logistic%20Regression/README.md>)
+
+The data used in this example is from a [Kaggle](https://www.kaggle.com/datasets/ziya07/diabetes-clinical-dataset100k-rows) repository, and comprises of health and demographic data of 100,000 individuals in the US.  We shall predict the outcome of having diabetes (Yes/No) based on a set of predictors. **Note that outcomes may or may not reflect actual medical scenarios but it a great data for practice.**
+
+# Summary of analysis approach
+The methodology used in this example is as follows:
+1. Loading the data and required packages
+2. Data cleaning
+    - Checking for missing data
+    - Setting correct variable types
+    - Checking for outliers
+3. Exploratory data analysis 
+4. Splitting the data into training and test sets
+5. Building the logistic model using glm
+6. Evaluating the model
+    ` Making predictions
+    - Confusion matrix
+    - ROC curve
+    - F1 score
+    - Accuracy
+7. Use gt summary to create publication friendly model output
+
+
+# Loading the data and required packages
+
+```{r}
+library(readr)
+library(dplyr) # data manipulation
+library(gtsummary) # publication friendly tables
+library(ggplot2) # data visualization
+library(ggthemes) # themes for ggplot2
+library(Hmisc)
+library(plotly)
+library(stringr) # string manipulation
+
+diabetes_dataset <- read_csv("C:/Users/ileboo/OneDrive - CIHEB- KENYA/Documents/My Projects/Youtube content/Machine Learning/Supervised Learning/Logistic Regression/diabetes_dataset.csv")
+```
+
+# Data cleaning  
+
+```{r}
+head(diabetes_dataset)
+```
+
+Check Structure of data
+
+```{r}
+str(diabetes_dataset)
+```
+
+Describe the data
+
+```{r}
+describe(diabetes_dataset)
+```
+For smoking history, lets reduce the classes
+
+```{r}
+diabetes_dataset <- diabetes_dataset %>% 
+  dplyr::mutate(
+    smoking_history = case_when(
+      smoking_history == "current" ~ "Current",
+      smoking_history == "ever" | smoking_history ==  "former" | smoking_history == "not current" ~ "Former/Ever",
+      smoking_history == "No Info" ~ "Never",
+      TRUE ~ as.character(smoking_history)
+      ),
+    smoking_history = as.factor(str_to_title(smoking_history))
+
+  )
+```
+
+
+Check for missing data
+
+```{r}
+colSums(is.na(diabetes_dataset))
+```
+
+
+
+Drop the last column on clinical notes
+
+```{r}
+diabetes_dataset <- diabetes_dataset %>% 
+  dplyr::select(-clinical_notes)
+```
+
+
+
+
+# Exploratory data analysis (EDA)
+
+
+## Target variable
+
+```{r}
+table(diabetes_dataset$diabetes)
+```
+
+
+```{r}
+
+```
+
+
+## Summary table
+
+```{r}
+diabetes_dataset %>% 
+  # change binary variables to yes and no
+  mutate_at(
+    dplyr::vars(contains("race"), heart_disease, diabetes),
+    funs(as.factor(case_when(
+      . == 1 ~ "Yes",
+      . == 0 ~ "No",
+      TRUE ~ as.character(.)
+    )))
+  ) %>% 
+  tbl_summary(
+    missing = "no",
+    type = list(
+      age ~ "continuous2",
+      bmi ~ "continuous2",
+      hbA1c_level ~ "continuous2",
+      blood_glucose_level ~ "continuous2",
+      all_dichotomous() ~ "categorical"
+    ),
+    statistic = all_continuous() ~ c("{median} ({p25}, {p75})", "{mean}, {sd}", "{min}, {max}")
+  ) %>% 
+  modify_header(label = "**Variable**") %>% 
+  bold_labels()
+```
+
+
+Summary table by response variable
+
+```{r}
+diabetes_dataset %>% 
+  # change binary variables to yes and no
+  mutate_at(
+    dplyr::vars(contains("race"), heart_disease, diabetes),
+    funs(as.factor(case_when(
+      . == 1 ~ "Yes",
+      . == 0 ~ "No",
+      TRUE ~ as.character(.)
+    )))
+  ) %>% 
+  tbl_summary(
+    missing = "no",
+    by = diabetes,
+    type = list(
+      age ~ "continuous2",
+      bmi ~ "continuous2",
+      hbA1c_level ~ "continuous2",
+      blood_glucose_level ~ "continuous2",
+      all_dichotomous() ~ "categorical"
+    ),
+    statistic = all_continuous() ~ c("{median} ({p25}, {p75})", "{mean}, {sd}", "{min}, {max}")
+  ) %>% 
+  add_overall() %>% 
+  modify_spanning_header(all_stat_cols()~"Diabetes") %>% 
+  modify_header(label = "**Variable**") %>% 
+  bold_labels()
+```
+
+
+SUmmary table with hypoyhesis test
+add p-value
+```{r}
+diabetes_dataset %>% 
+  # change binary variables to yes and no
+  mutate_at(
+    dplyr::vars(contains("race"), heart_disease, diabetes),
+    funs(as.factor(case_when(
+      . == 1 ~ "Yes",
+      . == 0 ~ "No",
+      TRUE ~ as.character(.)
+    )))
+  ) %>% 
+  tbl_summary(
+    missing = "no",
+    by = diabetes,
+    type = list(
+      age ~ "continuous2",
+      bmi ~ "continuous2",
+      hbA1c_level ~ "continuous2",
+      blood_glucose_level ~ "continuous2",
+      all_dichotomous() ~ "categorical"
+    ),
+    statistic = all_continuous() ~ c("{median} ({p25}, {p75})", "{mean}, {sd}", "{min}, {max}")
+  ) %>% 
+  add_overall() %>% 
+  add_p() %>%
+  modify_spanning_header(all_stat_cols()~"Diabetes") %>% 
+  modify_header(label = "**Variable**") %>% 
+  bold_labels()
+```
+
+
+
+
+## Number of patients enrolled by year
+
+```{r}
+diabetes_dataset %>% 
+  group_by(year) %>% 
+  summarise(n = n())
+```
+
+
+## Enrolment by race
+Convert the data into long format by race then count
+```{r}
+library(tidyr)
+diabetes_dataset %>% 
+  dplyr::select(contains("race")) %>% 
+  # rename the columns by extracting the text after the colon
+  rename_all(~str_extract(., "(?<=:)[^:]+$")) %>% 
+   # pivot the data into long format to only have two columns; source comment
+  pivot_longer(cols = everything(), names_to = "race", values_to = "enrolled") %>% 
+  # clean the comment column such that if Yes then 1 and if No 0 else NA. also write the source to total case for visibility
+  dplyr::mutate(
+    race = str_to_title(race)
+    ) %>% 
+  # group by source and sum by n
+  group_by(race) %>%
+  summarise(total = sum(enrolled, na.rm = T)) %>% 
+  mutate(perc = round(total/sum(total) * 100, 2)) %>% 
+  arrange(desc(total)) 
+```
+
+
+## Distribution of blood sugar 
+
+### By smoking history
+
+```{r}
+ggplot(diabetes_dataset) +
+  aes(x = "", y = blood_glucose_level, fill = smoking_history) +
+  geom_boxplot() +
+  scale_fill_brewer(palette = "Set1", direction = 1) +
+  labs(
+    x = "Smoking Status",
+    y = "Blood Glucose Level",
+    title = "Boxplot for Blood Glucose Level by Smoking History",
+    fill = "Smoking History"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "top",
+    plot.title = element_text(face = "bold",
+    hjust = 0.5)
+  )
+
+```
+
+
+### By diabetes status 
+Individuals with diabetes have higher blood sugar levels
+
+```{r}
+diabetes_dataset %>% 
+  dplyr::mutate(
+    diabetes = ifelse(diabetes == 1, "Yes", "No")
+  ) %>% 
+  ggplot() +
+  aes(x = "", y = blood_glucose_level, fill = diabetes) +
+  geom_boxplot() +
+  scale_fill_brewer(palette = "Set1", direction = -1) +
+  labs(
+    x = "Diabetes",
+    y = "Blood Glucose Level",
+    title = "Boxplot for Blood Glucose Level by Diabetes Status",
+    fill = "DIabetes Status"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "top",
+    plot.title = element_text(face = "bold",
+    hjust = 0.5)
+  )
+
+```
+
+## Number of patients by state
+
+### Generate a distinct list of states
+Some of the locations recorded are from a district within the states and additionally, some recorded the country name
+```{r}
+diabetes_dataset %>% 
+  dplyr::select(location) %>% 
+  distinct(location)
+```
+
+For the purpose of visualizing by state, we shall replace the districts with the state names then for United states we shall set to Washington state
+
+```{r}
+diabetes_dataset <-  diabetes_dataset %>% 
+  dplyr::mutate(
+    location = case_when(
+      location == "District of Columbia" ~ "Maryland",
+      location == "Guam" ~ "Hawaii",
+      location == "Puerto Rico" ~ "Florida",
+      location == "Virgin Islands" ~ "Florida",
+      location == "United States" ~ "Washington State", 
+      TRUE ~ as.character(location)
+  ))
+```
+
+
+Now to plot we shall use Plotly Choropleth functionality using the US state code. Let us first scrape the state codes from the web. TO learn more about websraping in R, [watch my previous video](https://youtu.be/YnrVzTCSxoU?si=Em5RkRlv4Tar5dgh)
+
+
+```{r}
+library(rvest)
+
+link = "https://worldpopulationreview.com/state-rankings/state-abbreviations"
+
+page = read_html(link) # convert to html
+
+web_tables<-html_elements(page, "table") # select html elements with *table*
+
+all_tables<- html_table(web_tables) # view tables
+
+us_states <- all_tables[[1]]
+
+us_states <- us_states %>% 
+  dplyr::select(State, Abbreviation)
+```
+
+Now we can join the two datasets to get the state codes
+
+```{r}
+# extract data for enrolment by state
+enrolment_by_state <- diabetes_dataset %>% 
+  group_by(year, location) %>% 
+  summarise(num_patients_enrolled = n()) %>% 
+  rename(State = location)
+
+# join the data
+enrolment_by_state <- left_join(enrolment_by_state, us_states, by = "State")
+```
+
+
+Finally we map
+
+
+
+```{r}
+# define map data properties - create a hover symbol
+enrolment_by_state <- enrolment_by_state%>%
+  dplyr::mutate(
+    num_patients_enrolled = as.numeric(num_patients_enrolled),
+    hover = paste0(State, "\n", num_patients_enrolled)
+  )
+
+library(plotly)
+
+graph_properties <- list(
+  scope = 'usa',
+  showland = TRUE,
+  landcolor = toRGB("white"),
+  color = toRGB("white")
+)
+
+font = list(
+  family = "DM Sans",
+  size = 15,
+  color = "black"
+)
+
+label = list(
+  bgcolor = "#EEEEEE",
+  bordercolor = "transparent",
+  font = font
+)
+
+
+enrolment_by_state_graph = plot_geo(
+  enrolment_by_state,
+  location = "USA-states",
+  frame = ~year) %>% 
+  add_trace(
+    locations=  ~ Abbreviation,
+    z = ~ num_patients_enrolled,
+    text = ~hover,
+    color = ~num_patients_enrolled,
+    colorscale = "Electric",
+    #marker = list(line = list(width = 0.5, color = toRGB("white"))),
+    hoverinfo = "text") %>% 
+  layout(geo = graph_properties,
+         title = "Patient Enrolment",
+         font = list(family = "DM Sans")) %>%
+  config(displayModeBar = FALSE) %>%
+  style(hoverlabel = label) %>%
+  colorbar(tickprefix = '')
+
+# print the graph
+enrolment_by_state_graph
+```
+
+
+
+
+
+
+
+# Build the logistic model
+
+## Prep the data
+
+Drop location and year variable and convert variable types into factors in case of binary variables
+
+```{r}
+diabetes_dataset <- diabetes_dataset %>%
+  dplyr::select(-c(year, location)) %>%
+  mutate_at(vars(contains("race"), heart_disease, hypertension, diabetes, gender,smoking_history), as.factor)
+```
+
+Create a new variable for race such that it is a single variable with multiple levels instead of multiple binary variables
+
+```{r}
+diabetes_dataset <- diabetes_dataset %>% 
+  dplyr::mutate(
+    race = as.factor(ifelse(
+      `race:AfricanAmerican` == 1, "African American", 
+      ifelse(`race:Asian` == 1, "Asian", 
+             ifelse(`race:Caucasian` == 1, "Caucasian", 
+                    ifelse(`race:Hispanic` == 1, "Hispanic", 
+                           ifelse(`race:Other` == 1, "Other", NA)
+                    )
+             )
+      )
+    )
+  )) %>% 
+  # drop race variables 
+  dplyr::select(-c(`race:AfricanAmerican`:`race:Other`))
+```
+
+Convert hypertension and heart disease to yes no instead of 1, 0 as factors
+```{r}
+diabetes_dataset <- diabetes_dataset %>% 
+  mutate_at(
+    dplyr::vars(hypertension, heart_disease, diabetes),
+    funs(as.factor(case_when(
+      . == 1 ~ "Yes",
+      . == 0 ~ "No",
+      TRUE ~ as.character(.)
+    )))
+  )
+```
+
+
+Set desired reference groups for categorical variable
+
+```{r}
+diabetes_dataset$gender <- relevel(diabetes_dataset$gender, ref = "Female")
+diabetes_dataset$hypertension <- relevel(diabetes_dataset$hypertension, ref = "Yes")
+diabetes_dataset$heart_disease <- relevel(diabetes_dataset$heart_disease, ref = "Yes")
+diabetes_dataset$smoking_history <- relevel(diabetes_dataset$smoking_history, ref = "Never")
+diabetes_dataset$race <- relevel(diabetes_dataset$race, ref = "Other")
+```
+
+
+
+### Splitting the data into test and train
+
+70-30 percent hold-out sample cross validation techniques was used to split the data into train and and test sets. This cross validation ratio sets up for the highest prediction accuracy.
+
+```{r}
+set.seed(123) # for reproducibility
+splitratio<-sort(sample(nrow(diabetes_dataset), nrow(diabetes_dataset)*.7))
+diabetes_dataset_train<-diabetes_dataset[splitratio,]
+diabetes_dataset_test<-diabetes_dataset[-splitratio,]
+```
+
+
+## Model Building 
+
+### Method 1 GLM
+```{r}
+diabetes_model <- glm(diabetes ~. , data = diabetes_dataset_train, family = "binomial")
+summary(diabetes_model)
+```
+
+
+
+Evaluate the model
+
+
+```{r}
+library(caret)
+
+pred1 <- predict(diabetes_model, diabetes_dataset_test, type='response')
+
+# confusion matrix
+predicted_data<- as.factor((ifelse(pred1>=0.5, "Yes", "No")))
+
+print(confusionMatrix(predicted_data, diabetes_dataset_test$diabetes))
+```
+
+```{r}
+# install.packages("MLmetrics")
+library("MLmetrics")
+```
+
+```{r}
+F1_Score(diabetes_dataset_test$diabetes, predicted_data, positive = NULL)
+```
+
+
+```{r}
+with(diabetes_model, pchisq(null.deviance-deviance,df.null-df.residual,lower.tail=F))
+```
+
+
+roc curve
+
+```{r}
+library(pROC)
+simple_roc <- function(labels, scores){
+  labels <- labels[order(scores, decreasing=TRUE)]
+  data.frame(TPR=cumsum(labels)/sum(labels), FPR=cumsum(!labels)/sum(!labels), labels)
+}
+plot(roc(as.numeric(diabetes_dataset_test$diabetes), as.numeric(predicted_data)), main="True Positive Rate vs False Positive Rate", print.auc=TRUE)
+
+simp_roc <- simple_roc(diabetes_dataset_test$diabetes=="TRUE",predicted_data)
+with(simp_roc, lines(1 - FPR, TPR, col="blue", lty=2))
+```
+
+## Tabulate the model outut usng sjPlot
+
+```{r}
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+tab_model(diabetes_model)
+```
+
+
+
+
+## Method 2 GT summary
+
+### Univariate model
+```{r}
+# Univariate logistic regression model
+univ_model<-diabetes_dataset_test %>% 
+  tbl_uvregression(method = glm,
+                   y = diabetes,
+                   method.args = list(family = "binomial"),
+                   exponentiate = TRUE,
+                   label = list(
+                     gender ~ "Gender",
+                     age ~ "Age",
+                     hypertension ~ "Hypertension",
+                     heart_disease ~ "Heart disease",
+                     race ~ "Race",
+                     smoking_history ~ "Smoking history",
+                     bmi ~ "BMI",
+                     blood_glucose_level ~ "Blood glucose level",
+                     hbA1c_level ~ "HbA1c level"
+                   )
+                   ) %>% 
+  add_global_p() %>% 
+  # this will update the em-dash in the CI row to Ref.
+  modify_table_styling(
+    columns = ci,
+    rows = reference_row %in% TRUE,
+    missing_symbol = "Ref."
+  )
+
+# view univaraite model
+univ_model
+```
+
+### Multivariate logistic model
+
+```{r}
+# split the variables into dependent and exploratory
+explanatory <- c("gender", "age", "hypertension", "heart_disease", "smoking_history",
+                 "bmi", "hbA1c_level", "blood_glucose_level", "race")
+
+dependent = "diabetes"  
+
+# build the multivariate regression model
+mv_reg_model <- explanatory %>%  ## begin with vector of explanatory column names
+  str_c(collapse = "+") %>%     ## combine all names of the variables of interest separated by a plus
+  str_c("diabetes ~ ", .) %>%    ## combine the names of variables of interest with outcome in formula style
+  glm(family = "binomial",      ## define type of glm as logistic,
+      data = diabetes_dataset_test)          ## define your dataset
+#display the results in a table using tbl from mv_reg_model
+
+# tabulate the output
+mv_final_table <- tbl_regression(
+  mv_reg_model, 
+  exponentiate = TRUE,
+  label = list(
+    gender ~ "Gender",
+    age ~ "Age",
+    hypertension ~ "Hypertension",
+    heart_disease ~ "Heart disease",
+    race ~ "Race",
+    smoking_history ~ "Smoking history",
+    bmi ~ "BMI",
+    blood_glucose_level ~ "Blood glucose level",
+    hbA1c_level ~ "HbA1c level"
+    )
+  ) %>% 
+  add_global_p() %>% 
+  # this will update the em-dash in the CI row to Ref.
+  modify_table_styling(
+    columns = ci,
+    rows = reference_row %in% TRUE,
+    missing_symbol = "Ref."
+  )
+
+mv_final_table
+```
+
+### combine the table
+```{r}
+combined_tab <- tbl_merge(
+  tbls = list(univ_model, mv_final_table),                          # combine
+  tab_spanner = c("*Univariate (Unadjusted)", "Multivariate (Adjusted)*")) # set header names
+
+
+print(combined_tab)
+```
+
+

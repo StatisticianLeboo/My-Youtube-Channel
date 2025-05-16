@@ -42,7 +42,7 @@ The methodology used in this example is as follows:
 
 5.  Building the logistic model using glm
 
-6.  Evaluating the model  - Making predictions - Confusion matrix - ROC curve - F1 score - Accuracy
+6.  Evaluating the model - Making predictions - Confusion matrix - ROC curve - F1 score - Accuracy
 
 7.  Use gt summary to create publication friendly model output
 
@@ -117,7 +117,7 @@ diabetes_dataset <- diabetes_dataset %>%
 create variable for bmi class - Here is the classification of bmi for children and adults
 
 | **Category** | **Adults (CDC & WHO)** | **Children (CDC & WHO)** |
-|------------------|------------------------|-----------------------------|
+|----|----|----|
 | **Underweight** | BMI \< 18.5 | Below the 5th percentile |
 | **Normal Weight** | BMI 18.5 - 24.9 | 5th to 85th percentile |
 | **Overweight** | BMI 25 - 29.9 | 85th to 95th percentile |
@@ -250,6 +250,40 @@ diabetes_dataset %>%
   modify_spanning_header(all_stat_cols()~"Diabetes") %>% 
   modify_header(label = "**Variable**") %>% 
   bold_labels()
+```
+
+## Distribution by gender
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(ggthemes)
+library(scales)  # for percent formatting if needed
+
+diabetes_dataset %>%
+  count(gender) %>%
+  mutate(perc = n / sum(n),
+         label = paste0(n, " (", round(perc * 100, 1), "%)")) %>%
+  ggplot(aes(x = gender, y = n, fill = gender)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = label), vjust = -0.5, size = 4.5) +
+  scale_fill_brewer(palette = "Dark2", direction = 1) +
+  labs(
+    x = "Gender",
+    y = "Number of Participants",
+    title = "Distribution of Participants by Gender",
+    fill = "Gender"
+  ) +
+  ggthemes::theme_fivethirtyeight() +
+  theme(legend.position = "top")
+
+```
+
+Since the other gender is very small, we can drop these values
+
+```{r}
+diabetes_dataset <- diabetes_dataset %>% 
+  dplyr::filter(gender != "Other")
 ```
 
 ## Enrollment by race
@@ -450,7 +484,7 @@ Drop location and year variable and convert variable types into factors in case 
 
 ```{r}
 diabetes_dataset <- diabetes_dataset %>%
-  dplyr::select(-c(year, location)) %>%
+  dplyr::select(-c(year, location, bmi)) %>%
   mutate_at(vars(contains("race"), heart_disease, hypertension, diabetes, gender,smoking_history), as.factor)
 ```
 
@@ -492,10 +526,11 @@ Set desired reference groups for categorical variable
 
 ```{r}
 diabetes_dataset$gender <- relevel(diabetes_dataset$gender, ref = "Female")
-diabetes_dataset$hypertension <- relevel(diabetes_dataset$hypertension, ref = "Yes")
-diabetes_dataset$heart_disease <- relevel(diabetes_dataset$heart_disease, ref = "Yes")
+diabetes_dataset$hypertension <- relevel(diabetes_dataset$hypertension, ref = "No")
+diabetes_dataset$heart_disease <- relevel(diabetes_dataset$heart_disease, ref = "No")
 diabetes_dataset$smoking_history <- relevel(diabetes_dataset$smoking_history, ref = "Never")
 diabetes_dataset$race <- relevel(diabetes_dataset$race, ref = "Other")
+
 ```
 
 ### Splitting the data into test and train
@@ -525,8 +560,6 @@ summary(diabetes_model)
 
 -   The probabilities are then classified into a binary outcome (Yes/No) based on the threshold of 0.5.
 
-<!-- -->
-
 -   Finally, a **confusion matrix** is generated to evaluate the performance of the model, comparing the predicted outcomes to the actual values in the test dataset.
 
 ```{r}
@@ -542,7 +575,7 @@ predicted_data<- as.factor((ifelse(pred1>=0.5, "Yes", "No")))
 print(confusionMatrix(predicted_data, diabetes_dataset_test$diabetes))
 ```
 
-The logistic regression model achieved an accuracy of 96.13%, with a 95% confidence interval of 95.91% to 96.35%, indicating strong performance. The model's sensitivity (99.05%) is high, meaning it effectively identifies individuals with diabetes, while its specificity (64.10%) is lower, indicating it struggles more with detecting non-diabetic individuals. The positive predictive value (96.80%) shows that when the model predicts diabetes, it is usually correct, and the negative predictive value (86.01%) indicates it is reliable when predicting no diabetes. The **Kappa statistic** of 0.7142 suggests substantial agreement with actual outcomes. The model's overall **balanced accuracy** is 81.57%, reflecting its ability to classify both classes effectively. Although the model performs well in detecting diabetes, it could benefit from improved specificity.
+The logistic regression model achieved an accuracy of 95.9% (95% CI - 95.9% - 96.1%), indicating strong performance. The model's sensitivity (99%) is high, meaning it effectively identifies individuals with diabetes, while its specificity (62.3%) is lower, indicating it struggles more with detecting non-diabetic individuals. The positive predictive value (96.5%) shows that when the model predicts diabetes, it is usually correct, and the negative predictive value (86.7%) indicates it is reliable when predicting no diabetes. The **Kappa statistic** of 0.7037 suggests substantial agreement with actual outcomes. The model's overall **balanced accuracy** is 80.7%, reflecting its ability to classify both classes effectively. Although the model performs well in detecting diabetes, it could benefit from improved specificity.
 
 **Print F1 score**
 
@@ -582,7 +615,7 @@ simp_roc <- simple_roc(diabetes_dataset_test$diabetes=="TRUE",predicted_data)
 with(simp_roc, lines(1 - FPR, TPR, col="blue", lty=2))
 ```
 
-This model's **AUC of 0.816** indicates it performs **well**, with a strong ability to distinguish diabetic from non-diabetic cases based on the input features. However, there's still some room for improvement — potentially by tuning the model or trying other algorithms.
+This model's **AUC of 0.807** indicates it performs **well**, with a strong ability to distinguish diabetic from non-diabetic cases based on the input features. However, there's still some room for improvement — potentially by tuning the model or trying other algorithms.
 
 ## Bonus - Tabulating the model output in publication friendly format
 
@@ -616,7 +649,7 @@ univ_model<-diabetes_dataset_train %>%
       heart_disease ~ "Heart disease",
       race ~ "Race",
       smoking_history ~ "Smoking history",
-      bmi ~ "BMI",
+      bmi_class ~ "BMI Category",
       blood_glucose_level ~ "Blood glucose level",
       hbA1c_level ~ "HbA1c level"
       )
@@ -634,8 +667,9 @@ univ_model<-diabetes_dataset_train %>%
 
 ```{r}
 # split the variables into dependent and exploratory
-explanatory <- c("gender", "age", "hypertension", "heart_disease", "smoking_history",
-                 "bmi", "hbA1c_level", "blood_glucose_level", "race")
+explanatory <- c("gender", "age", "hypertension", "heart_disease",
+                 "smoking_history","hbA1c_level", "blood_glucose_level", 
+                 "race", "bmi_class")
 
 dependent = "diabetes"  
 
@@ -657,8 +691,8 @@ mv_final_table <- tbl_regression(
     hypertension ~ "Hypertension",
     heart_disease ~ "Heart disease",
     race ~ "Race",
+    bmi_class ~ "BMI Category",
     smoking_history ~ "Smoking history",
-    bmi ~ "BMI",
     blood_glucose_level ~ "Blood glucose level",
     hbA1c_level ~ "HbA1c level"
     )
@@ -690,63 +724,66 @@ This section presents the results of a logistic regression model examining the a
 ### Gender
 
 -   Males demonstrated significantly higher odds of diabetes relative to females.
-    -   *Adjusted OR = 1.30; 95% CI: 1.20–1.41; p \< 0.001*
--   The “Other” category yielded an OR of 0.00, likely reflecting sparse data and resulting in wide or undefined confidence intervals.
+    -   *Adjusted OR = 1.30; 95% CI: 1.19–1.41; p \< 0.001*
 
 ### Age
 
 -   Age was positively associated with diabetes.
-    -   Each additional year was associated with a 5% increase in the odds of diabetes.\
-    -   *Adjusted OR = 1.05; 95% CI: 1.05–1.05; p \< 0.001*
+    -   Each additional year was associated with a 5% increase in the odds of diabetes.
+    -   *Adjusted OR = 1.05; 95% CI: 1.04–1.05; p \< 0.001*
 
 ### Hypertension
 
--   Respondents without a history of hypertension had significantly lower odds of diabetes compared to those with hypertension.
-    -   *Adjusted OR = 0.46; 95% CI: 0.41–0.51; p \< 0.001*
+-   Individuals with hypertension had substantially higher odds of diabetes relative to those without hypertension.
+    -   *Adjusted OR = 2.20; 95% CI: 1.97–2.46; p \< 0.001*
 
 ### Heart Disease
 
--   The absence of heart disease was associated with a protective effect against diabetes.
-    -   *Adjusted OR = 0.50; 95% CI: 0.43–0.57; p \< 0.001*
+-   Presence of heart disease was significantly associated with increased odds of diabetes.
+    -   *Adjusted OR =* 2.03; 95% CI: 1.76–2.33; p \< 0.001
 
 ### Smoking History
 
--   Both current and former smokers had elevated odds of diabetes when compared to never smokers.
-    -   *Current smokers: Adjusted OR = 1.50; 95% CI: 1.31–1.72*\
-    -   *Former/Ever smokers: Adjusted OR = 1.28; 95% CI: 1.16–1.41*
+Compared to never smokers, current and former smokers showed elevated odds of diabetes.
 
-### Body Mass Index (BMI)
+-   *Current smokers: Adjusted OR = 1.41; 95% CI: 1.23–1.62; p \< 0.001*
 
--   BMI was positively associated with diabetes risk.
-    -   *Adjusted OR = 1.09; 95% CI: 1.09–1.10; p \< 0.001*
+-   *Former/Ever smokers: Adjusted OR = 1.22; 95% CI: 1.11–1.34; p \< 0.001*
 
 ### Glycemic Indicators
 
 -   **HbA1c Level** emerged as the strongest predictor in the model.
-    -   *Adjusted OR = 10.3; 95% CI: 9.45–11.2; p \< 0.001*
+    -   *Adjusted OR = 10.4; 95% CI: 9.61–11.4; p \< 0.001*
 -   **Blood Glucose Level** was also significantly associated with increased odds.
     -   *Adjusted OR = 1.03; 95% CI: 1.03–1.04; p \< 0.001*
 
-### BMI Classification (Univariate Only)
+### BMI Classification
+
+Increase in weight was significantly associated with increased risk of diabetes
 
 -   Compared to individuals with normal weight:
-    -   *Severe obesity*: OR = 10.9\
-    -   *Obesity*: OR = 6.50\
-    -   *Overweight*: OR = 3.28\
-    -   *Underweight*: OR = 1.55
+    -   Severe obesity: *Adjusted OR = 6.27; 95% CI: 5.44–7.24; p \< 0.001*
+    -   *Obesity*: *Adjusted OR = 2.94; 95% CI: 5.44-7.24; p \< 0.001*
+    -   *Overweight*: *Adjusted OR = 1.48; 95% CI: 1.30-1.68; p \< 0.001*
+    -   *Underweight*: *Adjusted OR = 0.57; 95% CI: 0.31-0.98; p \< 0.001*
 
 ### Race
 
+Race was not a significant predictor of diabetes
+
 -   In the adjusted model, race was not a significant predictor for most categories, with the exception of African Americans who exhibited a modestly elevated risk:
-    -   *Adjusted OR = 1.15; 95% CI: 1.01–1.31; p = 0.029*
+    -   *Adjusted OR = 1.14; 95% CI: 0.99–1.30; p = 0.4*
 
 ------------------------------------------------------------------------
 
 ## 🔑 Key Takeaways
 
+-   **Glycemic indicators (HbA1c and blood glucose)** and BMI were the strongest predictors of diabetes in this population
 -   **HbA1c level**, **BMI**, **blood glucose**, **age**, and **hypertension** are statistically significant predictors of diabetes and retained significance after adjustment for confounding.
 -   Lifestyle factors such as **smoking history**—both current and former—were independently associated with increased diabetes risk.
+-   **Hypertension** and **heart disease** doubled the odds of diabetes after adjustment for other variables.
 -   While **gender** and **race** exhibited associations, the effect sizes were moderate and race was largely non-significant after adjustment.
+-   Race was not a significant predictor of diabetes, with the exception of a slight increase observed among African Americans that did not reach conventional statistical significance.
 
 ------------------------------------------------------------------------
 
@@ -774,9 +811,3 @@ This logistic regression analysis identified several significant predictors of d
 
 5.  **Utilize HbA1c and Blood Glucose in Clinical Settings**\
     These biomarkers showed the **strongest predictive power**. Clinical guidelines should emphasize the use of these indicators for **routine diagnosis and risk stratification**, particularly in high-risk populations.
-
-6.  **Address Gender Disparities**\
-    The elevated risk among males indicates a need for **gender-sensitive interventions**, possibly including workplace wellness programs and targeted health education for men.
-
-7.  **Conduct Further Research on Racial Disparities**\
-    Though race was not a major determinant in this dataset, **localized or longitudinal studies** may help clarify nuanced racial/ethnic dynamics, especially in different socioeconomic or geographical contexts.

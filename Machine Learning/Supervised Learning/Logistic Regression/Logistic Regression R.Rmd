@@ -1,6 +1,6 @@
 ---
 title: "Logistic Regression in R"
-subtitle: "Diabetes predition using logistic regression"
+subtitle: "Diabetes prediction using logistic regression"
 author: "Ian Leboo"
 date: "`r Sys.Date()`"
 output:
@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 # Introduction
 
-Logistic Regression is a supervised machine learning techniques used when modeling binary outcomes. It is a type of regression analysis used to predict the probability of a binary outcome based on one or more predictor variables. The outcome variable is typically coded as 0 or 1, where 0 represents the absence of the event and 1 represents the presence of the event.
+Logistic Regression is a supervised machine learning technique used when modeling binary outcomes. It is a type of regression analysis used to predict the probability of a binary outcome based on one or more predictor variables. The outcome variable is typically coded as 0 or 1, where 0 represents the absence of the event and 1 represents the presence of the event.
 
 Read more on logistic regression from my [GitHub repository](https://github.com/StatisticianLeboo/My-Youtube-Channel/blob/main/Machine%20Learning/Supervised%20Learning/Logistic%20Regression/README.md)
 
@@ -60,7 +60,7 @@ library(Hmisc)
 library(plotly)
 library(stringr) # string manipulation
 
-diabetes_dataset <- read_csv("C:/Users/ileboo/OneDrive - CIHEB- KENYA/Documents/My Projects/Youtube content/Machine Learning/Supervised Learning/Logistic Regression/diabetes_dataset.csv")
+diabetes_dataset <- read_csv("diabetes_dataset.csv")
 ```
 
 # Data cleaning
@@ -69,7 +69,7 @@ diabetes_dataset <- read_csv("C:/Users/ileboo/OneDrive - CIHEB- KENYA/Documents/
 head(diabetes_dataset)
 ```
 
-Check Structure of data
+Check the Structure of the data
 
 ```{r}
 str(diabetes_dataset)

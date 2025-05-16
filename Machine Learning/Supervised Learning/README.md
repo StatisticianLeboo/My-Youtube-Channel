@@ -17,6 +17,5 @@ Supervised learning is a type of machine learning where a model is trained using
 - **Gradient Boosting (XGBoost, LightGBM, CatBoost)**
 - **Neural Networks (Basic Feedforward, CNN, RNN)**
 - **Naive Bayes**
-- **AdaBoost**
 
-Each model is explored with sample datasets, codes using R and Pythin, performance evaluations, and visualization of results.
+Each model is explored with sample datasets, codes using R and Python, performance evaluations, and visualization of results.

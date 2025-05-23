@@ -14,7 +14,11 @@ Despite its simplicity and the strong independence assumption, it performs remar
 
 ## 📐 Bayes' Theorem
 
-At the core of Naive Bayes lies **Bayes' Theorem**, which describes the probability of an event based on prior knowledge of conditions related to the event.
+At the core of Naive Bayes lies **Bayes' Theorem**, which is used for calculating conditional probability.
+
+Conditional probability is a measure of the probability of an event occurring given that another event has (by assumption, presumption, assertion, or evidence) occurred.
+
+Bayes' theorem describes the probability of an event based on prior knowledge of conditions related to the event.
 
 ### **Formula:**
 
@@ -60,9 +64,9 @@ $$
 
 Assume:
 
-- \( P(\text{Sunny} | \text{Yes}) = \frac{2}{9} \)  
-- \( P(\text{Yes}) = \frac{9}{14} \)  
-- \( P(\text{Sunny}) = \frac{5}{14} \)
+- $$P(\text{Sunny} | \text{Yes}) = \frac{2}{9}$$
+- $$P(\text{Yes}) = \frac{9}{14}$$  
+- $$P(\text{Sunny}) = \frac{5}{14}$$
 
 Then:
 
